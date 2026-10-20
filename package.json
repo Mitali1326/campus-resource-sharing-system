@@ -1,0 +1,26 @@
+{
+  "name": "campus-ds-project",
+  "version": "2.0.0",
+  "description": "Distributed Campus Resource Sharing and Real-Time Collaboration System (FA-1 + FA-2)",
+  "main": "server/gateway.js",
+  "scripts": {
+    "start": "concurrently -n GATEWAY,COMP,IT,MECH,ELEC,CIVIL,ENTC,CENTRAL -c blue,green,yellow,magenta,cyan,white,red \"node server/gateway.js\" \"node server/nodes/compNode.js\" \"node server/nodes/itNode.js\" \"node server/nodes/mechNode.js\" \"node server/nodes/elecNode.js\" \"node server/nodes/civilNode.js\" \"node server/nodes/entcNode.js\" \"node server/nodes/centralNode.js\"",
+    "gateway": "node server/gateway.js",
+    "comp": "node server/nodes/compNode.js",
+    "it": "node server/nodes/itNode.js",
+    "mech": "node server/nodes/mechNode.js",
+    "elec": "node server/nodes/elecNode.js",
+    "civil": "node server/nodes/civilNode.js",
+    "entc": "node server/nodes/entcNode.js",
+    "central": "node server/nodes/centralNode.js",
+    "smoke": "node scripts/smoke-test.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

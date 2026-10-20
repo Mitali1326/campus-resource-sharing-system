@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Distributed Campus Resource Sharing System</title>
+<link href="vendor/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- ============ Header ============ -->
+<header class="site-header">
+  <div class="container-xl d-flex flex-wrap justify-content-between align-items-center gap-2">
+    <div>
+      <h1 class="site-title">Distributed Campus Resource Sharing &amp; Collaboration System</h1>
+      <div class="site-sub">Distributed Systems &mdash; Mini Project &middot; one system, all four units</div>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <span id="session-badge" class="session-badge">Not logged in</span>
+      <button id="logout-btn" class="btn btn-sm btn-outline-light d-none">Switch user</button>
+    </div>
+  </div>
+</header>
+
+<!-- ============ Node status ============ -->
+<div class="status-bar">
+  <div class="container-xl">
+    <div class="d-flex justify-content-between flex-wrap gap-2 small">
+      <span class="status-label">Department servers (each one is a separate container)</span>
+      <span id="lamport-clock" class="status-label">Lamport clock: 0</span>
+    </div>
+    <div id="node-strip" class="d-flex flex-wrap gap-2 pt-2"></div>
+  </div>
+</div>
+
+<!-- ============ Main tabs ============ -->
+<main class="container-xl my-3">
+  <ul class="nav nav-tabs main-tabs" id="mainTabs" role="tablist">
+    <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-booking" type="button">Booking &amp; Collaboration</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-board" type="button">Availability Board</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-files" type="button">Shared Files</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-notices" type="button">Notice Board</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-audit" type="button">Audit Trail</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-reports" type="button">Reports</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-ops" type="button">Cluster Operations</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-map" type="button">Syllabus Map</button></li>
+  </ul>
+
+  <div class="tab-content pt-3">
+
+    <!-- ===================================================== -->
+    <!-- 1. BOOKING & COLLABORATION                            -->
+    <!-- ===================================================== -->
+    <div class="tab-pane fade show active" id="tab-booking">
+      <div class="concepts"><span class="concepts-label">Concepts used here:</span>
+        <span class="chip">Unit 1 &middot; Resource sharing, middleware</span>
+        <span class="chip">Unit 2 &middot; RPC</span>
+        <span class="chip">Unit 2 &middot; Message-oriented (pub/sub)</span>
+        <span class="chip">Unit 2 &middot; P2P, WebRTC, stream</span>
+        <span class="chip chip-u3">Unit 3 &middot; Mutual exclusion (slot lock)</span>
+        <span class="chip chip-u3">Unit 3 &middot; Lamport &amp; vector clocks</span>
+        <span class="chip chip-u3">Unit 3 &middot; Deadlock detection (waiting list)</span>
+        <span class="chip chip-u4">Unit 4 &middot; Distributed objects (Details)</span>
+      </div>
+
+      <div id="deadlock-alert" class="alert alert-danger d-none d-flex justify-content-between align-items-center gap-2">
+        <span><b id="deadlock-text"></b></span>
+        <span class="d-flex gap-2"><button id="deadlock-resolve" class="btn btn-sm btn-danger">Resolve (cancel weakest wait)</button><button id="deadlock-close" class="btn btn-sm btn-outline-secondary">Dismiss</button></span>
+      </div>
+
+      <div class="note-box mb-3">
+        <b>How a request travels:</b> Browser &rarr; <b>Gateway</b> (middleware) &rarr; the department node that owns the resource (RPC).
+        Before a slot is booked the gateway takes its <b>lock</b> from the elected leader, so two people can never get the same slot.
+        If a slot is taken you can <b>join its waiting list</b>; when it is cancelled the first waiting department receives it automatically.
+        If departments end up waiting for each other in a circle, a <b>deadlock</b> is detected.
+      </div>
+
+      <div class="row g-3">
+        <div class="col-lg-8">
+          <ul class="nav nav-pills mb-3" id="dept-tabs"></ul>
+          <div id="resource-grid" class="d-flex flex-column gap-3"></div>
+        </div>
+
+        <div class="col-lg-4">
+          <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+              <span>Notifications <span class="hint">(pub/sub)</span></span>
+              <span class="live-badge">live</span>
+            </div>
+            <ul id="message-feed" class="list-group list-group-flush">
+              <li class="list-group-item text-muted small">No notifications yet &mdash; book or cancel a slot to see one appear here.</li>
+            </ul>
+          </div>
+
+          <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center gap-2">
+              <span>Inter-department chat</span>
+              <select id="chat-with-select" class="form-select form-select-sm chat-with-select"></select>
+            </div>
+            <div id="chat-thread" class="chat-thread">
+              <p class="text-muted small p-3 mb-0">Pick a department above to see the conversation.</p>
+            </div>
+            <div class="chat-input-row">
+              <input id="chat-input" type="text" class="form-control form-control-sm" placeholder="Type a message...">
+              <button id="chat-send" class="btn btn-primary btn-sm">Send</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">RPC trace <span class="hint">(Client &rarr; Gateway &rarr; Node)</span></div>
+            <div class="card-body p-2">
+              <pre id="rpc-log" class="rpc-log mb-0">Waiting for a booking request...
+</pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Collaboration room -->
+      <div id="collab" class="card mt-3 d-none">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <div>
+            <strong>Collaboration room</strong>
+            <div id="collab-sub" class="hint">Peer-to-peer video session over WebRTC</div>
+          </div>
+          <button id="collab-close" class="btn btn-sm btn-outline-secondary">Close</button>
+        </div>
+        <div class="card-body">
+          <p class="small text-muted">
+            This room connects whoever clicks <b>Start / Join Call</b> on this exact booking &mdash; usually the student who booked it and
+            someone from the department that owns the resource.
+          </p>
+          <div class="row g-3">
+            <div class="col-md-6"><div class="video-box"><video id="local-video" autoplay muted playsinline></video><span class="video-tag">You</span></div></div>
+            <div class="col-md-6"><div class="video-box"><video id="remote-video" autoplay playsinline></video><span class="video-tag" id="remote-label">Waiting for peer...</span></div></div>
+          </div>
+          <div class="mt-3 d-flex gap-2">
+            <button id="toggle-mic" class="btn btn-outline-secondary btn-sm">Mute mic</button>
+            <button id="toggle-cam" class="btn btn-outline-secondary btn-sm">Turn off camera</button>
+            <button id="leave-call" class="btn btn-danger btn-sm">Leave room</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================================================== -->
+    <!-- 2. AVAILABILITY BOARD                                 -->
+    <!-- ===================================================== -->
+    <div class="tab-pane fade" id="tab-board">
+      <div class="concepts"><span class="concepts-label">Concepts used here:</span>
+        <span class="chip chip-u4">Unit 4 &middot; Distributed web-based system (REST)</span>
+        <span class="chip chip-u4">Unit 4 &middot; Caching / CDN (Cloudflare idea)</span>
+        <span class="chip">Unit 1 &middot; Scalability, transparency</span>
+      </div>
+      <div class="note-box mb-3">
+        A read-only overview of every department's slots, for students who only want to look. It is served by the REST API
+        (<code>GET /api/v1/departments/&lt;dept&gt;/resources</code>) through a nearby <b>cache server</b>. The first request is a <b>MISS</b>
+        (the department node is asked); later ones are <b>HIT</b>s. The browser also sends the <code>ETag</code> back, and when nothing changed the answer is
+        <b>304 Not Modified</b>. A booking <b>purges</b> the cached copy, so the board never shows stale slots for long.
+      </div>
+      <div class="btn-row">
+        <label class="small">Cache server</label>
+        <select id="board-edge" class="form-select form-select-sm w-auto">
+          <option value="mumbai">Mumbai edge</option><option value="pune">Pune edge</option><option value="delhi">Delhi edge</option><option value="origin">No cache (ask the node every time)</option>
+        </select>
+        <button id="board-refresh" class="btn btn-primary btn-sm">Refresh board</button>
+        <label class="small ms-2"><input type="checkbox" id="board-auto" class="form-check-input me-1">auto-refresh every 5 s</label>
+        <span id="board-summary" class="hint"></span>
+      </div>
+      <div class="legend"><span class="cell cell-free"></span> free <span class="cell cell-booked ms-3"></span> booked</div>
+      <div id="board-out" class="row g-3 mt-1"></div>
+    </div>
+
+    <!-- ===================================================== -->
+    <!-- 3. SHARED FILES                                       -->
+    <!-- ===================================================== -->
+    <div class="tab-pane fade" id="tab-files">
+      <div class="concepts"><span class="concepts-label">Concepts used here:</span>
+        <span class="chip chip-u4">Unit 4 &middot; Distributed file system (HDFS)</span>
+        <span class="chip chip-u4">Unit 4 &middot; MapReduce (Apache Hadoop)</span>
+        <span class="chip">Unit 1 &middot; Fault tolerance, replication</span>
+      </div>
+      <div class="note-box mb-3">
+        Departments share lab notes and reports here. The gateway is the <b>NameNode</b> (it only remembers which blocks belong to a file and where they are);
+        the seven departments are <b>DataNodes</b> that store the blocks. Every file is cut into small blocks and <b>every block is copied to 3 departments</b>,
+        so the file survives the failure of a department server. <b>Analyze keywords</b> runs a <b>MapReduce word count</b> on the nodes that already hold the blocks.
+      </div>
+      <div class="card mb-3"><div class="card-body">
+        <div class="row g-2">
+          <div class="col-md-4"><input id="dfs-name" class="form-control form-control-sm" placeholder="file name, e.g. lab-notes.txt" value="lab-notes.txt"></div>
+          <div class="col-md-8 d-flex gap-2 flex-wrap">
+            <input id="dfs-file" type="file" accept=".txt,.md,.csv,.log,text/plain" class="form-control form-control-sm w-auto">
+            <button id="dfs-sample" class="btn btn-outline-secondary btn-sm">Fill sample text</button>
+            <button id="dfs-upload" class="btn btn-primary btn-sm">Upload &amp; replicate</button>
+          </div>
+          <div class="col-12"><textarea id="dfs-text" class="form-control form-control-sm" rows="3" placeholder="Choose a text file above, or type / paste text here. Blocks are only 160 characters, so even short text becomes several blocks."></textarea></div>
+        </div>
+      </div></div>
+      <div class="btn-row">
+        <button id="dfs-refresh" class="btn btn-outline-primary btn-sm">Refresh file list</button>
+        <button id="dfs-rerep" class="btn btn-outline-secondary btn-sm">Repair replicas (re-replicate)</button>
+        <button id="dfs-nodes" class="btn btn-outline-secondary btn-sm">Show where blocks are stored</button>
+        <label class="small ms-2">MapReduce reducers</label>
+        <select id="mr-red" class="form-select form-select-sm w-auto"><option>2</option><option selected>3</option><option>4</option></select>
+      </div>
+      <div id="dfs-files" class="out-html"></div>
+      <pre id="dfs-out" class="out d-none"></pre>
+      <div id="mr-out" class="out-html"></div>
+      <div id="dfs-nodes-out" class="out-html"></div>
+    </div>
+
+    <!-- ===================================================== -->
+    <!-- 4. NOTICE BOARD                                       -->
+    <!-- ===================================================== -->
+    <div class="tab-pane fade" id="tab-notices">
+      <div class="concepts"><span class="concepts-label">Concepts used here:</span>
+        <span class="chip chip-u4">Unit 4 &middot; Distributed database trade-offs</span>
+        <span class="chip chip-u4">Unit 4 &middot; Quorum, CAP theorem, replication</span>
+      </div>
+      <div class="note-box mb-3">
+        Campus-wide notices are stored on <b>3 department servers</b> (replicas). When you post you choose how careful the system must be:
+        <b>Strong</b> waits for all 3 servers (safe, but refuses if one is down), <b>Balanced</b> needs 2 of 3, <b>Fast</b> needs only 1 (always works,
+        but a reader may briefly see an older notice). This is the <b>CAP trade-off</b>. Try it: stop two department containers, then post with Strong and with Fast.
+      </div>
+      <div class="card mb-3"><div class="card-body">
+        <div class="row g-2 align-items-end">
+          <div class="col-md-3"><label class="form-label small mb-1">Title</label><input id="n-title" class="form-control form-control-sm" value="exam-notice"></div>
+          <div class="col-md-4"><label class="form-label small mb-1">Message</label><input id="n-text" class="form-control form-control-sm" value="Viva on Friday 10 AM"></div>
+          <div class="col-md-3"><label class="form-label small mb-1">Write guarantee</label>
+            <select id="n-level" class="form-select form-select-sm">
+              <option value="strong">Strong (all 3 servers must confirm)</option>
+              <option value="balanced" selected>Balanced (2 of 3)</option>
+              <option value="fast">Fast (1 of 3)</option>
+            </select></div>
+          <div class="col-md-2"><button id="n-post" class="btn btn-primary btn-sm w-100">Post notice</button></div>
+        </div>
+        <div id="n-msg" class="mt-2"></div>
+      </div></div>
+      <div class="btn-row">
+        <label class="small">Read the notices with</label>
+        <select id="n-readlevel" class="form-select form-select-sm w-auto">
+          <option value="3">Strong read (ask 3 servers)</option><option value="2" selected>Balanced read (ask 2 servers)</option><option value="1">Fast read (ask 1 server)</option>
+        </select>
+        <button id="n-refresh" class="btn btn-outline-primary btn-sm">Refresh notices</button>
+        <span class="hint">Reading and writing are consistent when write servers + read servers &gt; 3.</span>
+      </div>
+      <div id="n-list" class="row g-3"></div>
+    </div>
+
+    <!-- ===================================================== -->
+    <!-- 5. AUDIT TRAIL                                        -->
+    <!-- ===================================================== -->
+    <div class="tab-pane fade" id="tab-audit">
+      <div class="concepts"><span class="concepts-label">Concepts used here:</span>
+        <span class="chip chip-u4">Unit 4 &middot; Blockchain / distributed ledger</span>
+        <span class="chip chip-u3">Unit 3 &middot; Election (the leader mines blocks)</span>
+      </div>
+      <div class="note-box mb-3">
+        Every booking and cancellation is written into a <b>hash-chained block</b> that the leader mines (proof of work: the hash must start with 000).
+        Every department keeps and independently verifies its <b>own copy</b>, so nobody can quietly rewrite who booked what. Make a few bookings first, then
+        <b>Verify</b>. To see tamper detection: let a department secretly edit an old block, verify again, then <b>heal</b> from the majority.
+      </div>
+      <div class="btn-row">
+        <button id="led-refresh" class="btn btn-primary btn-sm">Verify all copies</button>
+        <label class="small ms-3">Dishonest department</label>
+        <select id="led-dept" class="form-select form-select-sm w-auto"></select>
+        <label class="small">edits block #</label>
+        <input id="led-index" type="number" min="1" value="1" class="form-control form-control-sm" style="width:70px">
+        <button id="led-tamper" class="btn btn-danger btn-sm">Tamper</button>
+        <button id="led-heal" class="btn btn-outline-success btn-sm">Heal from majority</button>
+      </div>
+      <div id="led-out" class="out-html"></div>
+    </div>
+
+    <!-- ===================================================== -->
+    <!-- 6. REPORTS                                            -->
+    <!-- ===================================================== -->
+    <div class="tab-pane fade" id="tab-reports">
+      <div class="concepts"><span class="concepts-label">Concepts used here:</span>
+        <span class="chip chip-u4">Unit 4 &middot; Serverless architecture (AWS Lambda idea)</span>
+        <span class="chip chip-u4">Unit 4 &middot; Event-driven functions</span>
+      </div>
+      <div class="note-box mb-3">
+        Reports and automatic tasks are small <b>serverless functions</b>: stateless code that runs only when it is called (by a button) or when an <b>event</b> happens
+        (<code>bookingAudit</code> runs by itself on every booking). The first call after an idle period is a <b>cold start</b> (extra start-up time); later calls are <b>warm</b>.
+        Billing is by execution time rounded up to 100 ms, as in AWS Lambda. Run a report twice and compare.
+      </div>
+      <div id="faas-list" class="out-html"></div>
+      <div id="faas-result" class="out-html"></div>
+      <div class="btn-row"><button id="faas-metrics" class="btn btn-outline-primary btn-sm">Show usage &amp; billing</button></div>
+      <div id="faas-metrics-out" class="out-html"></div>
+    </div>
+
+    <!-- ===================================================== -->
+    <!-- 7. CLUSTER OPERATIONS                                 -->
+    <!-- ===================================================== -->
+    <div class="tab-pane fade" id="tab-ops">
+      <div class="concepts"><span class="concepts-label">Concepts used here:</span>
+        <span class="chip chip-u3">Unit 3 &middot; Beacon protocol</span>
+        <span class="chip chip-u3">Unit 3 &middot; Election (Bully, Ring)</span>
+        <span class="chip chip-u3">Unit 3 &middot; Clock synchronization</span>
+        <span class="chip chip-u3">Unit 3 &middot; Logical &amp; vector clocks</span>
+        <span class="chip chip-u3">Unit 3 &middot; Global state</span>
+        <span class="chip chip-u3">Unit 3 &middot; Mutual exclusion</span>
+        <span class="chip chip-u3">Unit 3 &middot; Deadlock detection</span>
+        <span class="chip chip-u4">Unit 4 &middot; Kubernetes, AWS, Cloudflare, Megaport</span>
+      </div>
+      <div class="note-box mb-3">
+        The administrator's console: how the department servers keep each other honest. Every button below works on the <b>real running containers</b>
+        that the rest of the system uses. Open a section, press a button and read the result.
+      </div>
+
+      <div class="accordion" id="accOps">
+
+        <div class="accordion-item">
+          <h2 class="accordion-header"><button class="accordion-button" data-bs-toggle="collapse" data-bs-target="#ops-health">Node health &amp; heartbeats <span class="chip-inline">Beacon protocol</span></button></h2>
+          <div id="ops-health" class="accordion-collapse collapse show" data-bs-parent="#accOps"><div class="accordion-body">
+            <p class="explain">Every department node <b>pushes</b> a small &ldquo;I am alive&rdquo; beacon to the gateway every 3 seconds. If beacons stop, the gateway first <i>suspects</i> the node (after 7 s) and then declares it <i>dead</i> (after 15 s). Stop a container (<code>docker stop mech-node</code>) and watch this table change by itself.</p>
+            <div class="btn-row"><button id="beacon-refresh" class="btn btn-primary btn-sm">Refresh now</button><span class="hint">refreshes by itself every 3 s while this tab is open</span></div>
+            <div id="beacon-out" class="out-html"></div>
+          </div></div>
+        </div>
+
+        <div class="accordion-item">
+          <h2 class="accordion-header"><button class="accordion-button collapsed" data-bs-toggle="collapse" data-bs-target="#ops-elect">Leader election <span class="chip-inline">Bully &amp; Ring</span></button></h2>
+          <div id="ops-elect" class="accordion-collapse collapse" data-bs-parent="#accOps"><div class="accordion-body">
+            <p class="explain">The <b>leader</b> (shown as LEADER in the header) is the lock manager for bookings and the miner of the audit trail. <b>Bully</b>: a node that notices a problem challenges every stronger node; the strongest live node wins. <b>Ring</b>: an election token travels around a logical ring collecting ids; the highest id wins. Stop the leader's container, then run an election: a new leader takes over.</p>
+            <div class="btn-row">
+              <label class="small">Election started by</label>
+              <select id="elect-initiator" class="form-select form-select-sm w-auto"></select>
+              <button id="elect-bully" class="btn btn-primary btn-sm">Run Bully</button>
+              <button id="elect-ring" class="btn btn-primary btn-sm">Run Ring</button>
+            </div>
+            <div id="elect-out" class="out-html"></div>
+          </div></div>
+        </div>
+
+        <div class="accordion-item">
+          <h2 class="accordion-header"><button class="accordion-button collapsed" data-bs-toggle="collapse" data-bs-target="#ops-clock">Clock synchronization <span class="chip-inline">Cristian &amp; Berkeley</span></button></h2>
+          <div id="ops-clock" class="accordion-collapse collapse" data-bs-parent="#accOps"><div class="accordion-body">
+            <p class="explain">Every node's clock is deliberately wrong by a different amount, like real computers (this is why booking times are not compared across servers). <b>Cristian</b>: each node asks one time server (the gateway), measures the round-trip time and sets its clock to the reply plus half the round trip. <b>Berkeley</b>: nobody is trusted; the master collects all clocks, averages them and tells every node how much to adjust.</p>
+            <div class="btn-row">
+              <button id="clock-status" class="btn btn-outline-primary btn-sm">1. Show clock errors</button>
+              <button id="clock-cristian" class="btn btn-primary btn-sm">2. Run Cristian</button>
+              <button id="clock-berkeley" class="btn btn-primary btn-sm">3. Run Berkeley</button>
+              <button id="clock-reset" class="btn btn-outline-secondary btn-sm">Make the clocks wrong again</button>
+            </div>
+            <div id="clock-out" class="out-html"></div>
+            <pre id="clock-steps" class="out d-none"></pre>
+          </div></div>
+        </div>
+
+        <div class="accordion-item">
+          <h2 class="accordion-header"><button class="accordion-button collapsed" data-bs-toggle="collapse" data-bs-target="#ops-vector">Ordering of events <span class="chip-inline">Lamport &amp; vector clocks</span></button></h2>
+          <div id="ops-vector" class="accordion-collapse collapse" data-bs-parent="#accOps"><div class="accordion-body">
+            <p class="explain">Physical time cannot tell which event caused which. The <b>Lamport clock</b> (the <code>LC=n</code> tags on notifications and in the RPC trace) gives every event a number consistent with cause and effect. A <b>vector clock</b> keeps one counter per department and can also tell when two events are <b>concurrent</b>. Every chat message carries one (the <code>VC</code> line under each chat bubble).</p>
+            <div class="btn-row">
+              <button id="vc-demo" class="btn btn-primary btn-sm">Run the concurrent / happened-before demo</button>
+              <button id="vc-show" class="btn btn-outline-primary btn-sm">Show every node's vector clock</button>
+            </div>
+            <div id="vc-out" class="out-html"></div>
+          </div></div>
+        </div>
+
+        <div class="accordion-item">
+          <h2 class="accordion-header"><button class="accordion-button collapsed" data-bs-toggle="collapse" data-bs-target="#ops-snap">Campus state snapshot <span class="chip-inline">Global state</span></button></h2>
+          <div id="ops-snap" class="accordion-collapse collapse" data-bs-parent="#accOps"><div class="accordion-body">
+            <p class="explain">How do you photograph a system that keeps changing while you look at it? The initiator records its own state and sends <b>MARKER</b> messages. Each node records its state when the first marker arrives and then records every message still travelling on its other channels (<i>in-flight</i> messages). The result is a consistent picture of the whole campus (Chandy&ndash;Lamport).</p>
+            <div class="btn-row">
+              <label class="form-check-label small"><input type="checkbox" id="snap-inject" class="form-check-input me-1" checked>send a chat message while the snapshot runs (so one is caught in flight)</label>
+              <button id="snap-run" class="btn btn-primary btn-sm">Take snapshot</button>
+            </div>
+            <div id="snap-out" class="out-html"></div>
+          </div></div>
+        </div>
+
+        <div class="accordion-item">
+          <h2 class="accordion-header"><button class="accordion-button collapsed" data-bs-toggle="collapse" data-bs-target="#ops-mutex">Slot locks <span class="chip-inline">Mutual exclusion</span></button></h2>
+          <div id="ops-mutex" class="accordion-collapse collapse" data-bs-parent="#accOps"><div class="accordion-body">
+            <p class="explain">Booking a slot is a <b>critical section</b>. <b>Centralised algorithm (really used on every booking):</b> the gateway asks the leader for that slot's lock and waiting requests queue first-come-first-served. <b>Ricart&ndash;Agrawala (simulation):</b> no coordinator &mdash; every process multicasts a timestamped request and replies are deferred to later requests. The fairness idea of Lodha &amp; Kshemkalyani (self study) is explained in the concepts file.</p>
+            <div class="btn-row">
+              <button id="mutex-contend" class="btn btn-primary btn-sm">3 departments book the same slot at the same instant</button>
+              <button id="mutex-ra" class="btn btn-primary btn-sm">Run Ricart&ndash;Agrawala simulation</button>
+              <button id="mutex-log" class="btn btn-outline-secondary btn-sm">Show lock log</button>
+            </div>
+            <div id="mutex-out" class="out-html"></div>
+          </div></div>
+        </div>
+
+        <div class="accordion-item">
+          <h2 class="accordion-header"><button class="accordion-button collapsed" data-bs-toggle="collapse" data-bs-target="#ops-dead">Deadlock monitor <span class="chip-inline">Wait-for graph &amp; edge chasing</span></button></h2>
+          <div id="ops-dead" class="accordion-collapse collapse" data-bs-parent="#accOps"><div class="accordion-body">
+            <p class="explain">This watches the <b>waiting lists</b> of the booking screen. An edge &ldquo;A waits for B&rdquo; means department A is on the waiting list for a slot that B holds. A <b>circle</b> of such edges is a deadlock. Knapp classifies detection algorithms as path-pushing, <b>edge-chasing</b>, diffusion and global-state; here you can run a <b>wait-for graph</b> cycle search and the <b>Chandy&ndash;Misra&ndash;Haas probe</b> algorithm. &ldquo;Create sample deadlock&rdquo; makes two <i>real</i> bookings and two crossing waiting-list entries for you.</p>
+            <div class="btn-row">
+              <button id="dl-demo" class="btn btn-outline-primary btn-sm">1. Create sample deadlock</button>
+              <button id="dl-detect" class="btn btn-primary btn-sm">2a. Detect (wait-for graph)</button>
+              <label class="small ms-2">2b. Probes started by</label>
+              <select id="dl-initiator" class="form-select form-select-sm w-auto"></select>
+              <button id="dl-probe" class="btn btn-primary btn-sm">Send probes</button>
+              <button id="dl-resolve" class="btn btn-warning btn-sm">3. Resolve</button>
+              <button id="dl-refresh" class="btn btn-outline-secondary btn-sm">Show current graph</button>
+              <button id="dl-reset" class="btn btn-outline-secondary btn-sm">Clear sample</button>
+            </div>
+            <div id="dl-out" class="out-html"></div>
+          </div></div>
+        </div>
+
+        <div class="accordion-item">
+          <h2 class="accordion-header"><button class="accordion-button collapsed" data-bs-toggle="collapse" data-bs-target="#ops-cache">Edge cache statistics <span class="chip-inline">Cloudflare idea</span></button></h2>
+          <div id="ops-cache" class="accordion-collapse collapse" data-bs-parent="#accOps"><div class="accordion-body">
+            <p class="explain">Counters of the cache servers behind the Availability Board: hits, misses, 304 revalidations and purges caused by bookings.</p>
+            <div class="btn-row"><button id="cache-stats" class="btn btn-primary btn-sm">Show statistics</button><button id="cache-clear" class="btn btn-outline-secondary btn-sm">Reset caches</button></div>
+            <div id="cache-stat-out" class="out-html"></div>
+          </div></div>
+        </div>
+
+        <div class="accordion-item">
+          <h2 class="accordion-header"><button class="accordion-button collapsed" data-bs-toggle="collapse" data-bs-target="#ops-platform">Platform &amp; case studies <span class="chip-inline">Kubernetes, AWS, Cloudflare, Megaport, Hadoop</span></button></h2>
+          <div id="ops-platform" class="accordion-collapse collapse" data-bs-parent="#accOps"><div class="accordion-body">
+            <table class="table table-sm table-bordered small mb-0">
+              <thead><tr><th>Case study</th><th>Idea in the real world</th><th>Where it appears in this project</th></tr></thead>
+              <tbody>
+                <tr><td><b>Kubernetes</b></td><td>Runs and heals many containers; Services give stable names; Deployments keep the wanted number of copies.</td><td><code>k8s/campus.yaml</code> runs the same 8 containers as Pods with Services (same DNS names as Docker Compose). Delete a pod and Kubernetes recreates it.</td></tr>
+                <tr><td><b>AWS</b></td><td>EC2 (virtual machines), Lambda (serverless), S3 (storage), Security Groups (firewall).</td><td>The system is deployed on an <b>EC2</b> instance (README, Part D); <b>Reports</b> mirror Lambda (cold start, billed ms); <b>Shared Files</b> mirror replicated cloud storage.</td></tr>
+                <tr><td><b>Cloudflare</b></td><td>Global edge network: content is cached close to users and purged when it changes.</td><td><b>Availability Board</b>: three edge caches, HIT/MISS, ETag revalidation, purge on booking.</td></tr>
+                <tr><td><b>Megaport</b></td><td>Software-defined network: private, on-demand virtual connections between sites and clouds.</td><td>The private network <code>campus-net</code> joins the department containers; only the gateway port is public. Departments are addressed by name, not by physical address.</td></tr>
+                <tr><td><b>Apache Hadoop</b></td><td>HDFS (replicated blocks, NameNode/DataNodes) + MapReduce (move computation to the data).</td><td><b>Shared Files</b>: replicated blocks and the <i>Analyze keywords</i> word-count job.</td></tr>
+              </tbody>
+            </table>
+          </div></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ===================================================== -->
+    <!-- 8. SYLLABUS MAP                                       -->
+    <!-- ===================================================== -->
+    <div class="tab-pane fade" id="tab-map">
+      <p class="small text-muted">Where every topic of the syllabus appears in the working system.</p>
+      <table class="table table-sm table-bordered small bg-white">
+        <thead class="table-light"><tr><th style="width:7%">Unit</th><th style="width:27%">Syllabus topic</th><th>Which feature of the system uses it</th><th style="width:20%">Where to see it</th></tr></thead>
+        <tbody>
+          <tr class="grp"><td colspan="4">Unit 1 &mdash; Introduction</td></tr>
+          <tr><td>1</td><td>Definition, goals (resource sharing, transparency, openness, scalability)</td><td>Seven department servers share labs, halls and rooms and look like one website</td><td>Booking &amp; Collaboration</td></tr>
+          <tr><td>1</td><td>Types, architectures</td><td>Distributed information system; layered client &ndash; gateway &ndash; node design with a P2P overlay for video</td><td>Booking &amp; Collaboration</td></tr>
+          <tr><td>1</td><td>Design issues, middleware</td><td>The gateway is the middleware (naming, RPC forwarding, pub/sub); concurrency, failures, transparency</td><td>RPC trace panel</td></tr>
+          <tr><td>1</td><td>Distributed multimedia; virtualization</td><td>WebRTC audio/video; every node is a Docker container</td><td>Start / Join Call</td></tr>
+          <tr class="grp"><td colspan="4">Unit 2 &mdash; Communication</td></tr>
+          <tr><td>2</td><td>RPC</td><td>Booking = JSON-RPC from the gateway to the owning node</td><td>RPC trace</td></tr>
+          <tr><td>2</td><td>Message-oriented, stream-oriented, P2P, WebRTC</td><td>Live notifications and chat (pub/sub); video call straight between two browsers</td><td>Notifications, chat, video</td></tr>
+          <tr><td>2</td><td>Names, identifiers, addresses; fault tolerance</td><td>Department code &rarr; node id &rarr; address registry; stop any container</td><td>Header pills</td></tr>
+          <tr class="grp"><td colspan="4">Unit 3 &mdash; Synchronization</td></tr>
+          <tr><td>3</td><td>Clock synchronization</td><td>Cristian and Berkeley on the nodes' skewed clocks</td><td>Cluster Operations &rarr; Clock synchronization</td></tr>
+          <tr><td>3</td><td>Logical clocks, Lamport, vector algorithm</td><td>LC tags on every notification and RPC; a vector clock inside every chat message</td><td>Booking (chat, feed), Operations</td></tr>
+          <tr><td>3</td><td>Global state</td><td>Chandy&ndash;Lamport snapshot of all departments and in-flight messages</td><td>Operations &rarr; Campus state snapshot</td></tr>
+          <tr><td>3</td><td>Election algorithms</td><td>Bully elects the leader (lock manager, ledger miner); Ring also available</td><td>LEADER tag, Operations</td></tr>
+          <tr><td>3</td><td>Mutual exclusion; Lodha&ndash;Kshemkalyani (self study)</td><td>Every booking takes a slot lock from the leader; Ricart&ndash;Agrawala simulation</td><td>Booking, Operations &rarr; Slot locks</td></tr>
+          <tr><td>3</td><td>Beacon protocol</td><td>Heartbeats from every node; alive / suspected / dead</td><td>Operations &rarr; Node health</td></tr>
+          <tr><td>3</td><td>Deadlock detection; Knapp classification (self study)</td><td>Waiting list for booked slots; circular waits detected with wait-for graph and edge-chasing probes</td><td>Booking (waiting list), Operations</td></tr>
+          <tr class="grp"><td colspan="4">Unit 4 &mdash; Emerging distributed paradigms</td></tr>
+          <tr><td>4</td><td>Distributed object-based systems</td><td>Every resource is a remote object (<code>obj://comp-node/comp-r1</code>); the Details panel calls its methods</td><td>Booking &rarr; Details</td></tr>
+          <tr><td>4</td><td>Distributed web-based systems</td><td>REST API and cached availability board</td><td>Availability Board</td></tr>
+          <tr><td>4</td><td>Distributed file system</td><td>Shared files stored as replicated blocks (HDFS style)</td><td>Shared Files</td></tr>
+          <tr><td>4</td><td>Serverless architectures</td><td>Reports and automatic audit function with cold starts and billing</td><td>Reports</td></tr>
+          <tr><td>4</td><td>Case studies: Hadoop, Kubernetes, AWS, Cloudflare, Megaport</td><td>MapReduce keyword analysis; k8s manifests; EC2 deployment; edge caches; private network</td><td>Shared Files, Operations &rarr; Platform</td></tr>
+          <tr><td>4</td><td>Blockchain and distributed ledger (self study)</td><td>Hash-chained, proof-of-work audit trail of all bookings</td><td>Audit Trail</td></tr>
+          <tr><td>4</td><td>Trade-offs in distributed databases (self study)</td><td>Notice board on a quorum of 3 replicas with Strong / Balanced / Fast guarantees</td><td>Notice Board</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</main>
+
+<footer class="site-footer">
+  Distributed Systems Mini Project &mdash; Computer / IT / Mechanical / Electrical / Civil / E&amp;TC / Central Library nodes
+  <span id="team-info" class="d-block"></span>
+</footer>
+
+<!-- ============ Login modal ============ -->
+<div class="modal fade" id="loginModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title">Sign in to your department</h5></div>
+    <div class="modal-body">
+      <p class="text-muted small">Demo login so every booking and chat message is tied to a department. Passcodes are listed in the README.</p>
+      <div class="mb-3"><label class="form-label">Your name</label><input id="login-name" type="text" class="form-control" placeholder="e.g. Rohan Patil"></div>
+      <div class="mb-3"><label class="form-label">Your department</label>
+        <select id="login-dept" class="form-select">
+          <option value="comp">Computer Engineering</option><option value="it">Information Technology</option>
+          <option value="mech">Mechanical Engineering</option><option value="elec">Electrical Engineering</option>
+          <option value="civil">Civil Engineering</option><option value="entc">Electronics &amp; Telecommunication</option>
+          <option value="central">Central Library staff</option>
+        </select></div>
+      <div class="mb-3"><label class="form-label">Department passcode</label><input id="login-passcode" type="password" class="form-control" placeholder="see README for passcodes"></div>
+      <p id="login-error" class="text-danger small d-none"></p>
+    </div>
+    <div class="modal-footer">
+      <button type="button" id="login-guest" class="btn btn-outline-secondary">Continue as guest (browse only)</button>
+      <button type="button" id="login-submit" class="btn btn-primary">Sign in</button>
+    </div>
+  </div></div>
+</div>
+
+<!-- ============ Booking modal ============ -->
+<div class="modal fade" id="bookingModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title" id="modal-title">Book resource</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <p id="modal-slot-label" class="text-muted small mb-3"></p>
+      <div class="mb-3"><label class="form-label">Your name</label><input id="modal-name" type="text" class="form-control"></div>
+      <div class="mb-3"><label class="form-label">Your department</label>
+        <select id="modal-dept" class="form-select" disabled>
+          <option value="comp">Computer Engineering</option><option value="it">Information Technology</option>
+          <option value="mech">Mechanical Engineering</option><option value="elec">Electrical Engineering</option>
+          <option value="civil">Civil Engineering</option><option value="entc">Electronics &amp; Telecommunication</option>
+          <option value="central">Central Library staff</option>
+        </select>
+        <div class="form-text">Locked to your logged-in department. If it differs from the resource's department, this is an inter-department request.</div>
+      </div>
+      <p id="modal-error" class="text-danger small d-none"></p>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+      <button type="button" id="modal-confirm" class="btn btn-primary">Confirm booking</button>
+    </div>
+  </div></div>
+</div>
+
+<!-- ============ Resource details modal (remote object) ============ -->
+<div class="modal fade" id="detailsModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title" id="details-title">Resource</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body" id="details-body"></div>
+  </div></div>
+</div>
+
+<!-- Everything is bundled locally: the app works without internet access. -->
+<script src="vendor/bootstrap.bundle.min.js"></script>
+<script src="vendor/socket.io.min.js"></script>
+<script src="common.js"></script>
+<script src="app.js"></script>
+<script src="board.js"></script>
+<script src="files.js"></script>
+<script src="notices.js"></script>
+<script src="audit.js"></script>
+<script src="reports.js"></script>
+<script src="ops.js"></script>
+</body>
+</html>

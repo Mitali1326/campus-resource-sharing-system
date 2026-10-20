@@ -1,0 +1,122 @@
+# docker-compose.yml
+# Every service below is its own container: its own filesystem, its own process,
+# its own crash domain. They talk to each other only over the private network
+# "campus-net", addressed by service name (Docker's built-in DNS).
+# That is what makes the system genuinely distributed.
+
+services:
+  comp-node:
+    build: .
+    container_name: comp-node
+    restart: unless-stopped
+    command: ["node", "server/nodes/compNode.js"]
+    environment:
+      GATEWAY_URL: "http://gateway:5000"   # where this node sends its beacons (Unit 3)
+    ports:
+      - "5001:5001"
+    networks:
+      - campus-net
+
+  it-node:
+    build: .
+    container_name: it-node
+    restart: unless-stopped
+    command: ["node", "server/nodes/itNode.js"]
+    environment:
+      GATEWAY_URL: "http://gateway:5000"   # where this node sends its beacons (Unit 3)
+    ports:
+      - "5002:5002"
+    networks:
+      - campus-net
+
+  mech-node:
+    build: .
+    container_name: mech-node
+    restart: unless-stopped
+    command: ["node", "server/nodes/mechNode.js"]
+    environment:
+      GATEWAY_URL: "http://gateway:5000"   # where this node sends its beacons (Unit 3)
+    ports:
+      - "5003:5003"
+    networks:
+      - campus-net
+
+  elec-node:
+    build: .
+    container_name: elec-node
+    restart: unless-stopped
+    command: ["node", "server/nodes/elecNode.js"]
+    environment:
+      GATEWAY_URL: "http://gateway:5000"   # where this node sends its beacons (Unit 3)
+    ports:
+      - "5004:5004"
+    networks:
+      - campus-net
+
+  civil-node:
+    build: .
+    container_name: civil-node
+    restart: unless-stopped
+    command: ["node", "server/nodes/civilNode.js"]
+    environment:
+      GATEWAY_URL: "http://gateway:5000"   # where this node sends its beacons (Unit 3)
+    ports:
+      - "5005:5005"
+    networks:
+      - campus-net
+
+  entc-node:
+    build: .
+    container_name: entc-node
+    restart: unless-stopped
+    command: ["node", "server/nodes/entcNode.js"]
+    environment:
+      GATEWAY_URL: "http://gateway:5000"   # where this node sends its beacons (Unit 3)
+    ports:
+      - "5006:5006"
+    networks:
+      - campus-net
+
+  central-node:
+    build: .
+    container_name: central-node
+    restart: unless-stopped
+    command: ["node", "server/nodes/centralNode.js"]
+    environment:
+      GATEWAY_URL: "http://gateway:5000"   # where this node sends its beacons (Unit 3)
+    ports:
+      - "5007:5007"
+    networks:
+      - campus-net
+
+  gateway:
+    build: .
+    container_name: gateway
+    restart: unless-stopped
+    command: ["node", "server/gateway.js"]
+    ports:
+      - "5000:5000"
+    environment:
+      # "comp-node" etc. are not real hostnames anywhere else - Docker's DNS
+      # resolves them to the container's private IP on campus-net.
+      COMP_URL: "http://comp-node:5001"
+      IT_URL: "http://it-node:5002"
+      MECH_URL: "http://mech-node:5003"
+      ELEC_URL: "http://elec-node:5004"
+      CIVIL_URL: "http://civil-node:5005"
+      ENTC_URL: "http://entc-node:5006"
+      CENTRAL_URL: "http://central-node:5007"
+    depends_on:
+      - comp-node
+      - it-node
+      - mech-node
+      - elec-node
+      - civil-node
+      - entc-node
+      - central-node
+    networks:
+      - campus-net
+
+networks:
+  campus-net:
+    driver: bridge

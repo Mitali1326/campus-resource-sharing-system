@@ -1,0 +1,431 @@
+# k8s/campus.yaml
+# The same 8 containers as docker-compose.yml, but run by Kubernetes.
+#  - each department is a Deployment (keeps the wanted number of Pods alive)
+#  - each Deployment has a Service (stable DNS name such as "comp-node")
+#  - the gateway Service is a NodePort so a browser can reach it
+# Build the image first (see README, Part E):  docker build -t campus-ds:latest .
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: campus
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: comp-node
+  namespace: campus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: comp-node
+  template:
+    metadata:
+      labels:
+        app: comp-node
+    spec:
+      containers:
+        - name: comp-node
+          image: campus-ds:latest
+          imagePullPolicy: IfNotPresent
+          command: ["node", "server/nodes/compNode.js"]
+          ports:
+            - containerPort: 5001
+          env:
+            - name: GATEWAY_URL
+              value: "http://gateway:5000"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5001
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: comp-node
+  namespace: campus
+spec:
+  type: ClusterIP
+  selector:
+    app: comp-node
+  ports:
+    - port: 5001
+      targetPort: 5001
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: it-node
+  namespace: campus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: it-node
+  template:
+    metadata:
+      labels:
+        app: it-node
+    spec:
+      containers:
+        - name: it-node
+          image: campus-ds:latest
+          imagePullPolicy: IfNotPresent
+          command: ["node", "server/nodes/itNode.js"]
+          ports:
+            - containerPort: 5002
+          env:
+            - name: GATEWAY_URL
+              value: "http://gateway:5000"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5002
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: it-node
+  namespace: campus
+spec:
+  type: ClusterIP
+  selector:
+    app: it-node
+  ports:
+    - port: 5002
+      targetPort: 5002
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mech-node
+  namespace: campus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mech-node
+  template:
+    metadata:
+      labels:
+        app: mech-node
+    spec:
+      containers:
+        - name: mech-node
+          image: campus-ds:latest
+          imagePullPolicy: IfNotPresent
+          command: ["node", "server/nodes/mechNode.js"]
+          ports:
+            - containerPort: 5003
+          env:
+            - name: GATEWAY_URL
+              value: "http://gateway:5000"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5003
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mech-node
+  namespace: campus
+spec:
+  type: ClusterIP
+  selector:
+    app: mech-node
+  ports:
+    - port: 5003
+      targetPort: 5003
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: elec-node
+  namespace: campus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: elec-node
+  template:
+    metadata:
+      labels:
+        app: elec-node
+    spec:
+      containers:
+        - name: elec-node
+          image: campus-ds:latest
+          imagePullPolicy: IfNotPresent
+          command: ["node", "server/nodes/elecNode.js"]
+          ports:
+            - containerPort: 5004
+          env:
+            - name: GATEWAY_URL
+              value: "http://gateway:5000"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5004
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: elec-node
+  namespace: campus
+spec:
+  type: ClusterIP
+  selector:
+    app: elec-node
+  ports:
+    - port: 5004
+      targetPort: 5004
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: civil-node
+  namespace: campus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: civil-node
+  template:
+    metadata:
+      labels:
+        app: civil-node
+    spec:
+      containers:
+        - name: civil-node
+          image: campus-ds:latest
+          imagePullPolicy: IfNotPresent
+          command: ["node", "server/nodes/civilNode.js"]
+          ports:
+            - containerPort: 5005
+          env:
+            - name: GATEWAY_URL
+              value: "http://gateway:5000"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5005
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: civil-node
+  namespace: campus
+spec:
+  type: ClusterIP
+  selector:
+    app: civil-node
+  ports:
+    - port: 5005
+      targetPort: 5005
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: entc-node
+  namespace: campus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: entc-node
+  template:
+    metadata:
+      labels:
+        app: entc-node
+    spec:
+      containers:
+        - name: entc-node
+          image: campus-ds:latest
+          imagePullPolicy: IfNotPresent
+          command: ["node", "server/nodes/entcNode.js"]
+          ports:
+            - containerPort: 5006
+          env:
+            - name: GATEWAY_URL
+              value: "http://gateway:5000"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5006
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: entc-node
+  namespace: campus
+spec:
+  type: ClusterIP
+  selector:
+    app: entc-node
+  ports:
+    - port: 5006
+      targetPort: 5006
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: central-node
+  namespace: campus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: central-node
+  template:
+    metadata:
+      labels:
+        app: central-node
+    spec:
+      containers:
+        - name: central-node
+          image: campus-ds:latest
+          imagePullPolicy: IfNotPresent
+          command: ["node", "server/nodes/centralNode.js"]
+          ports:
+            - containerPort: 5007
+          env:
+            - name: GATEWAY_URL
+              value: "http://gateway:5000"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5007
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: central-node
+  namespace: campus
+spec:
+  type: ClusterIP
+  selector:
+    app: central-node
+  ports:
+    - port: 5007
+      targetPort: 5007
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway
+  namespace: campus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gateway
+  template:
+    metadata:
+      labels:
+        app: gateway
+    spec:
+      containers:
+        - name: gateway
+          image: campus-ds:latest
+          imagePullPolicy: IfNotPresent
+          command: ["node", "server/gateway.js"]
+          ports:
+            - containerPort: 5000
+          env:
+            - name: COMP_URL
+              value: "http://comp-node:5001"
+            - name: IT_URL
+              value: "http://it-node:5002"
+            - name: MECH_URL
+              value: "http://mech-node:5003"
+            - name: ELEC_URL
+              value: "http://elec-node:5004"
+            - name: CIVIL_URL
+              value: "http://civil-node:5005"
+            - name: ENTC_URL
+              value: "http://entc-node:5006"
+            - name: CENTRAL_URL
+              value: "http://central-node:5007"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway
+  namespace: campus
+spec:
+  type: NodePort
+  selector:
+    app: gateway
+  ports:
+    - port: 5000
+      targetPort: 5000
+      nodePort: 30500
